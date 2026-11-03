@@ -106,6 +106,10 @@ namespace Nefisto.Recolor
 
 
 
+        // Every shade moves only as far as fits, so none merge; off, the From colour lands on To exactly.
+        [SerializeField]
+        internal bool keepShading = true;
+
         [SerializeField]
         internal bool cleanEdges = true;
 
@@ -424,12 +428,25 @@ namespace Nefisto.Recolor
             }
 
 
-            // The shading is always kept: when the lightest or darkest shade would pass the limit, every
-            // shade moves only as far as fits. This shows where the From colour went then.
-            if (changedPixels > 0 && !Approximately(landedColor, Target()))
-                using (new EditorGUI.DisabledScope(true))
-                    EditorGUILayout.ColorField(new GUIContent("From lands on",
-                        "The To colour would push the lightest or darkest shades past the limit and merge them, so every shade moved only as far as fits. A slightly lighter or darker To colour moves the From colour closer to it."), landedColor);
+            // When the lightest or darkest shade would pass the limit, Keep shading moves every shade only
+            // as far as fits, and this shows where the From colour went. The option shows only then, or
+            // while it is off, so it can be turned back on.
+            var heldBack = keepShading && !Approximately(landedColor, Target());
+
+            if (changedPixels > 0 && (heldBack || !keepShading))
+            {
+                EditorGUI.BeginChangeCheck();
+                keepShading = EditorGUILayout.Toggle(new GUIContent("Keep shading",
+                    "On, every shade moves by the same amount and none passes the limit, so no two shades merge; the From colour then lands near the To colour. Off, the From colour lands on the To colour exactly, and the shades past the limit are cut there, so some of them merge."), keepShading);
+
+                if (EditorGUI.EndChangeCheck())
+                    dirty = true;
+
+                if (heldBack)
+                    using (new EditorGUI.DisabledScope(true))
+                        EditorGUILayout.ColorField(new GUIContent("From lands on",
+                            "The To colour would push the lightest or darkest shades past the limit and merge them, so every shade moved only as far as fits. A slightly lighter or darker To colour moves the From colour closer to it, or Keep shading can be turned off."), landedColor);
+            }
 
             using (new EditorGUILayout.HorizontalScope())
             {
@@ -1608,7 +1625,7 @@ namespace Nefisto.Recolor
             var shiftV = toV - fromV;
 
             // Clamping each pixel on its own would merge the shades past the limit, flattening the shading.
-            if (minS <= maxS)
+            if (keepShading && minS <= maxS)
             {
                 shiftS = Mathf.Clamp(shiftS, -minS, 1f - maxS);
                 shiftV = Mathf.Clamp(shiftV, -minV, 1f - maxV);
