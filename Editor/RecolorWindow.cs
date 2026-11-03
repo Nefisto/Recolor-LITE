@@ -153,9 +153,16 @@ namespace Nefisto.Recolor
         internal static GUIStyle loupeLabel;
         internal static GUIStyle shortcutLabel;
         internal static GUIStyle sectionStyle;
+        private static GUIStyle changedStyle;
         internal Vector2 optionsScroll;
         internal float settingsWidth;
         internal float splitterGrab;
+
+        // The grey behind notes in the previews, such as the keys and the count of changed pixels.
+        private static Color NoteColour => EditorGUIUtility.isProSkin ? new Color(1f, 1f, 1f, 0.06f) : new Color(0f, 0f, 0f, 0.07f);
+
+        // The keys show in the original image when it is wide enough, otherwise under the settings.
+        private bool keysInPreview;
         internal readonly List<int> nearFull = new();
         internal readonly List<int> nearOther = new();
         internal readonly List<int> pureAll = new();
@@ -259,7 +266,7 @@ namespace Nefisto.Recolor
                     EditorGUILayout.EndScrollView();
 
                     // Always in full at the bottom, outside the scroll: what the add-ons keep there, then
-                    // the shortcuts.
+                    // the shortcuts when the original image has no room for them.
                     if (ready)
                         foreach (var addon in addons)
                             addon.DrawFooter();
@@ -323,7 +330,8 @@ namespace Nefisto.Recolor
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                source = (Texture2D) EditorGUILayout.ObjectField("Image", source, typeof(Texture2D), false);
+                // One line high, so a texture shows as a name and not as a big thumbnail.
+                source = (Texture2D) EditorGUILayout.ObjectField("Image", source, typeof(Texture2D), false, GUILayout.Height(EditorGUIUtility.singleLineHeight));
 
                 if (GUILayout.Button(new GUIContent("Use selection", "Uses the image selected in the Project window: a texture, a sprite, or a file such as an Aseprite or PSD file."), GUILayout.Width(100f)))
                     source = TextureOf(Selection.activeObject) ?? source;
@@ -414,7 +422,6 @@ namespace Nefisto.Recolor
                     addon.DrawAfterRegion();
             }
 
-            EditorGUILayout.LabelField($"{changedPixels} of {original.width * original.height} pixels changed", EditorStyles.miniLabel);
 
             // The shading is always kept: when the lightest or darkest shade would pass the limit, every
             // shade moves only as far as fits. This shows where the From colour went then.
@@ -442,27 +449,9 @@ namespace Nefisto.Recolor
         // The field ends where the To field does, so the two line up beside the wheel.
         internal void DrawRegionControls ()
         {
-            var removeKey = RemoveKey();
-
+            // What to click, Clear and the keys are all in the header of the original image.
             if (!HasSelection())
-            {
-                EditorGUILayout.HelpBox($"Click the part to change on the original image. Shift+click adds another part, {removeKey}+click removes one.", MessageType.Info);
-
-                if (GUILayout.Button(new GUIContent("Select every match", "Selects every pixel the From colour matches, as the whole image would change, to take out what shouldn't be in it.")))
-                    SelectEveryMatch();
-
                 return;
-            }
-
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                EditorGUILayout.LabelField(SelectionSummary(), EditorStyles.miniLabel);
-
-                if (GUILayout.Button(new GUIContent("Clear", "Clears the selection. Esc does the same."), EditorStyles.miniButton, GUILayout.Width(60f)))
-                    ClearSelection();
-            }
-
-            EditorGUILayout.LabelField($"Shift+click adds a part, {removeKey}+click removes one.", EditorStyles.miniLabel);
 
             foreach (var addon in addons)
                 addon.DrawRegionControls();
@@ -585,7 +574,8 @@ namespace Nefisto.Recolor
                 y += addon.OriginalHeaderHeight + EditorGUIUtility.standardVerticalSpacing;
             }
 
-            var top = controls.yMax + 4f;
+            // The image starts under the header, or under the keys when they reach lower.
+            var top = DrawKeysBox(frame, controls.xMax, controls.yMax) + 4f;
             var image = new Rect(frame.x + 4f, top, frame.width - 8f, frame.yMax - 4f - top);
 
             if (image.height > 0f)
@@ -611,17 +601,25 @@ namespace Nefisto.Recolor
             var wasArea = area;
             var areaRow = row;
 
-            // In a clicked region the row also holds Clear, greyed out while nothing is selected so the
-            // row keeps its shape.
+            // In a clicked region the row also holds one button, in one place: Every match while nothing
+            // is selected, Clear once something is.
             if (area == AreaMode.ClickedRegion)
             {
-                const float clearWidth = 56f;
+                const float buttonWidth = 80f;
 
-                areaRow.width -= clearWidth + 4f;
+                areaRow.width -= buttonWidth + 4f;
 
-                using (new EditorGUI.DisabledScope(!HasSelection()))
-                    if (GUI.Button(new Rect(areaRow.xMax + 4f, row.y, clearWidth, row.height), new GUIContent("Clear", "Clears the selection. Esc does the same."), EditorStyles.miniButton))
+                var button = new Rect(areaRow.xMax + 4f, row.y, buttonWidth, row.height);
+
+                if (HasSelection())
+                {
+                    if (GUI.Button(button, new GUIContent("Clear", "Clears the selection. Esc does the same."), EditorStyles.miniButton))
                         ClearSelection();
+                }
+                else if (GUI.Button(button, new GUIContent("Every match", "Selects every pixel the From colour matches, as the whole image would change, to take out what shouldn't be in it."), EditorStyles.miniButton))
+                {
+                    SelectEveryMatch();
+                }
             }
 
             area = (AreaMode) EditorGUI.EnumPopup(areaRow, new GUIContent("Area",
@@ -681,6 +679,18 @@ namespace Nefisto.Recolor
 
             DrawHeaderBand(frame, Mathf.Max(TitleWidth("Preview"), headerWidth + 12f), top + headerHeight - frame.y);
             GUI.Label(new Rect(frame.x + 6f, frame.y + 2f, frame.width - 12f, PreviewTitleHeight), "Preview", EditorStyles.miniBoldLabel);
+
+            // How much changed, in the top right corner, on a grey note like the keys.
+            changedStyle ??= new GUIStyle(EditorStyles.miniLabel) { alignment = TextAnchor.MiddleCenter };
+
+            var changed = new GUIContent($"{changedPixels} of {original.width * original.height} pixels changed");
+            var changedWidth = changedStyle.CalcSize(changed).x + 8f;
+            var note = new Rect(frame.xMax - 6f - changedWidth, frame.y + 3f, changedWidth, PreviewTitleHeight - 2f);
+
+            if (Event.current.type == EventType.Repaint)
+                EditorGUI.DrawRect(note, NoteColour);
+
+            GUI.Label(note, changed, changedStyle);
 
             foreach (var addon in addons)
             {
@@ -752,24 +762,85 @@ namespace Nefisto.Recolor
             Recolor();
         }
 
-        // A summary of what a click on the original image does, with each modifier.
+        // What a click on the original image does, with each key. The keys of a clicked region only while
+        // it is on.
+        private (string keys, string action)[] Keys ()
+        {
+            var keys = new List<(string, string)> { ("Click", "Pick the From colour"), ("Hold Alt", "Hide the zoom") };
+
+            if (area == AreaMode.ClickedRegion)
+                keys.AddRange(new[]
+                {
+                    ("Shift + click", "Add to the selection"),
+                    (RemoveKey() + " + click", "Remove from it"),
+                    ("Drag", "Keep going (Single pixel)"),
+                    ("Esc", "Clear the selection")
+                });
+
+            return keys.ToArray();
+        }
+
+        private static GUIStyle KeyStyle ()
+        {
+            shortcutLabel ??= new GUIStyle(EditorStyles.miniLabel);
+            shortcutLabel.normal.textColor = EditorGUIUtility.isProSkin ? new Color(0.62f, 0.62f, 0.62f) : new Color(0.35f, 0.35f, 0.35f);
+
+            return shortcutLabel;
+        }
+
+        // At the bottom of the settings, only while the original image is too narrow to hold the keys.
         internal void DrawShortcuts ()
         {
+            if (keysInPreview)
+                return;
+
             // A thin line sets the summary apart from the settings that scroll above it.
             var line = GUILayoutUtility.GetRect(1f, 1f, GUILayout.ExpandWidth(true));
 
             EditorGUI.DrawRect(line, EditorGUIUtility.isProSkin ? new Color(0.1f, 0.1f, 0.1f) : new Color(0.6f, 0.6f, 0.6f));
             EditorGUILayout.LabelField("On the original image", EditorStyles.boldLabel);
 
-            shortcutLabel ??= new GUIStyle(EditorStyles.miniLabel);
-            shortcutLabel.normal.textColor = EditorGUIUtility.isProSkin ? new Color(0.55f, 0.55f, 0.55f) : new Color(0.45f, 0.45f, 0.45f);
+            foreach (var (keys, action) in Keys())
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    EditorGUILayout.LabelField(keys, KeyStyle(), GUILayout.Width(90f));
+                    EditorGUILayout.LabelField(action, KeyStyle());
+                }
+        }
 
-            Shortcut("Click", "Pick the From colour");
-            Shortcut("Shift + click", "Add to the selection (Clicked region)");
-            Shortcut(RemoveKey() + " + click", "Remove from the selection (Clicked region)");
-            Shortcut("Drag", "Keep going, pixel by pixel (Single pixel)");
-            Shortcut("Hold Alt", "Hide the zoom");
-            Shortcut("Esc", "Clear the selection (Clicked region)");
+        // The keys in a grey box at the top right of the original image, like a note. Left out, and shown
+        // under the settings instead, when the frame is too narrow to hold them beside the area controls.
+        // Returns the bottom of the box, or of the header when there is none.
+        private float DrawKeysBox (Rect frame, float controlsRight, float headerBottom)
+        {
+            const float keysWidth = 74f;
+            const float actionWidth = 124f;
+            const float lineHeight = 14f;
+            const float padding = 4f;
+
+            var keys = Keys();
+            var box = new Rect(frame.xMax - 6f - keysWidth - actionWidth - padding * 2f, frame.y + 4f,
+                keysWidth + actionWidth + padding * 2f, keys.Length * lineHeight + padding * 2f);
+
+            keysInPreview = box.x >= controlsRight + 8f;
+
+            if (!keysInPreview)
+                return headerBottom;
+
+            if (Event.current.type == EventType.Repaint)
+            {
+                EditorGUI.DrawRect(box, NoteColour);
+
+                for (var i = 0; i < keys.Length; i++)
+                {
+                    var y = box.y + padding + i * lineHeight;
+
+                    GUI.Label(new Rect(box.x + padding, y, keysWidth, lineHeight), keys[i].keys, KeyStyle());
+                    GUI.Label(new Rect(box.x + padding + keysWidth, y, actionWidth, lineHeight), keys[i].action, KeyStyle());
+                }
+            }
+
+            return Mathf.Max(headerBottom, box.yMax);
         }
 
         // A bold title with an arrow that opens and closes the section under it. A click on the title works too.
@@ -782,14 +853,6 @@ namespace Nefisto.Recolor
             return EditorGUILayout.Foldout(open, new GUIContent(title, tooltip), true, sectionStyle);
         }
 
-        internal static void Shortcut (string keys, string action)
-        {
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                EditorGUILayout.LabelField(keys, shortcutLabel, GUILayout.Width(90f));
-                EditorGUILayout.LabelField(action, shortcutLabel);
-            }
-        }
 
         // A framed image with its title in the top left corner, on a strip of its own above the image.
         internal static void DrawPreview (Rect frame, Texture2D texture, string title)
