@@ -379,8 +379,15 @@ namespace Nefisto.Recolor
             foreach (var addon in addons)
                 addon.DrawAfterMatching();
 
-            area =(AreaMode) EditorGUILayout.EnumPopup(new GUIContent("Area",
-                "Whole image changes the colour everywhere. Clicked region changes only the part you click on the original image, stopping where the colour changes sharply."), area);
+            var wasArea = area;
+
+            area = (AreaMode) EditorGUILayout.EnumPopup(new GUIContent("Area",
+                "Whole image changes the colour everywhere. Clicked region changes only the part you click on the original image, stopping where the colour changes sharply. Switching to it with nothing selected selects what the whole image changed, to take out what shouldn't be in it."), area);
+
+            // From the whole image to a clicked region, with nothing selected yet: start from every
+            // pixel the whole image changed, so the ones that shouldn't change can be taken out.
+            if (wasArea == AreaMode.WholeImage && area == AreaMode.ClickedRegion && !HasSelection())
+                SelectEveryMatch();
 
             if (area == AreaMode.ClickedRegion)
             {
@@ -478,6 +485,9 @@ namespace Nefisto.Recolor
             {
                 EditorGUILayout.HelpBox($"Click the part to change on the original image. Shift+click adds another part, {removeKey}+click removes one.", MessageType.Info);
 
+                if (GUILayout.Button(new GUIContent("Select every match", "Selects every pixel the From colour matches, as the whole image would change, to take out what shouldn't be in it.")))
+                    SelectEveryMatch();
+
                 return;
             }
 
@@ -508,10 +518,23 @@ namespace Nefisto.Recolor
 
         internal bool HasSelection () => seeds.Count > 0 || addedPixels.Count > 0 || removedPixels.Count > 0;
 
+        // Starts the selection from every pixel the From colour matches.
+        internal void SelectEveryMatch ()
+        {
+            seeds.Clear();
+            addedPixels.Clear();
+            removedPixels.Clear();
+            seeds.Add(RegionSeed.EveryMatch());
+            dirty = true;
+            SelectionChanged(true);
+        }
+
         internal string SelectionSummary ()
         {
-            var count = seeds.Count(seed => !seed.remove);
-            var parts = count == 1 ? "1 part" : $"{count} parts";
+            var count = seeds.Count(seed => !seed.remove && !seed.everyMatch);
+            var parts = seeds.Any(seed => seed.everyMatch)
+                ? count == 0 ? "Every match" : count == 1 ? "Every match and 1 part" : $"Every match and {count} parts"
+                : count == 1 ? "1 part" : $"{count} parts";
 
             if (addedPixels.Count == 0 && removedPixels.Count == 0)
                 return parts + " selected";
@@ -1578,6 +1601,16 @@ namespace Nefisto.Recolor
 
             foreach (var seed in seeds)
             {
+                // Every pixel the From colour matches, wherever it is, as the whole image would change.
+                if (seed.everyMatch)
+                {
+                    for (var i = 0; i < pixels.Length; i++)
+                        if (weights[i] > 0f && pixels[i].a > 0)
+                            region[i] = !seed.remove;
+
+                    continue;
+                }
+
                 if (!IsInside(seed.point))
                     continue;
 
