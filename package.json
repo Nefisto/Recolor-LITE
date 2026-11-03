@@ -1,0 +1,18 @@
+{
+  "name": "com.nefisto.recolor",
+  "version": "0.1.0",
+  "displayName": "Recolor",
+  "description": "Editor tool that swaps a colour in an image while keeping its shading and its anti-aliased edges clean.",
+  "unity": "2022.3",
+  "author": {
+    "name": "Nefisto",
+    "email": "joao.gavron@gmail.com"
+  },
+  "samples": [
+    {
+      "displayName": "Demo",
+      "description": "Example showing how to use Recolor.",
+      "path": "Samples~/Demo"
+    }
+  ]
+}

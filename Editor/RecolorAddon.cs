@@ -1,0 +1,71 @@
+using System;
+using UnityEngine;
+
+namespace Nefisto.Recolor
+{
+    // A part added to the Recolor window from another assembly, such as the Pro features. The window finds
+    // every add-on in the project, keeps one of each with its own state, and calls it at set points.
+    // It is internal: only the assemblies named in AssemblyInfo can add one.
+    [Serializable]
+    internal abstract class RecolorAddon
+    {
+        [NonSerialized]
+        internal RecolorWindow window;
+
+        // Lower comes first, where several add-ons draw in the same place.
+        internal virtual int Order => 0;
+
+        internal virtual void OnEnable () { }
+
+        internal virtual void OnDisable () { }
+
+        // Another image was picked, or the image was replaced by its result: anything kept for it goes.
+        internal virtual void OnNewImage () { }
+
+        // The image was read again from its file, such as after a script reload or a new import.
+        internal virtual void OnImageLoaded () { }
+
+        internal virtual void OnUndoRedo () { }
+
+        // The selection started over, or was added to or taken from.
+        internal virtual void OnSelectionChanged (bool startedOver) { }
+
+        // Right after the From and To colours.
+        internal virtual void AfterColours () { }
+
+        // Right after the matching settings.
+        internal virtual void DrawAfterMatching () { }
+
+        // At the end of the clicked region controls, while something is selected.
+        internal virtual void DrawRegionControls () { }
+
+        // After the clicked region controls.
+        internal virtual void DrawAfterRegion () { }
+
+        // After the save buttons, at the end of the settings.
+        internal virtual void DrawSections () { }
+
+        // A colour for the result to go to instead of the To colour.
+        internal virtual bool TargetColour (out Color colour)
+        {
+            colour = default;
+
+            return false;
+        }
+
+        // Just before the result is worked out again.
+        internal virtual void BeforeRecolor () { }
+
+        // Draws something in place of the result preview. True when it did.
+        internal virtual bool DrawResult (Rect area) => false;
+
+        // A title for the original image preview instead of "Original image".
+        internal virtual string OriginalTitle () => null;
+
+        // Called on every editor update. True to repaint the window.
+        internal virtual bool Update () => false;
+
+        // The window lets go of its textures; the add-on lets go of its own.
+        internal virtual void Release () { }
+    }
+}
