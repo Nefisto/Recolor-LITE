@@ -7,6 +7,8 @@ old colour changes and no fringe of it is left behind.
 - Recolour the whole image, or only the parts you click.
 - Works with PNG, JPG, Aseprite, PSD and any image Unity imports.
 - The shading always stays: every shade keeps its distance from the others.
+- Sprite sheets: a clicked part never spills into the next frame, and **Animate frames** plays the
+  recoloured frames beside the result, each by its pivot.
 
 Open it from **Tools > Recolor**.
 
@@ -18,4 +20,4 @@ In **Window > Package Manager**, **+ > Add package from git URL**, with
 ## Recolor Pro
 
 Recolor Pro, on the Unity Asset Store, adds what sprite sheets need: the selection found on every
-frame, save points, saved selections, colour variants, transition sheets and an animated preview.
+frame, save points, saved selections, colour variants and transition sheets.

@@ -3,9 +3,9 @@ using UnityEngine;
 
 namespace Nefisto.Recolor
 {
-    // A part added to the Recolor window from another assembly, such as the Pro features. The window finds
+    // A part added to the Recolor window, such as Animate frames or the Pro features. The window finds
     // every add-on in the project, keeps one of each with its own state, and calls it at set points.
-    // It is internal: only the assemblies named in AssemblyInfo can add one.
+    // It is internal: only this assembly and those named in AssemblyInfo can add one.
     [Serializable]
     internal abstract class RecolorAddon
     {

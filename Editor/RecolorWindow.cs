@@ -906,6 +906,42 @@ namespace Nefisto.Recolor
         internal static Rect Inset (Rect frame)
             => new(frame.x + 4f, frame.y + PreviewTitleHeight + 2f, frame.width - 8f, frame.height - PreviewTitleHeight - 6f);
 
+        // Which of count images plays now, at a number of frames per second. Ping-pong goes back to the
+        // start after the end instead of jumping there, without repeating the two ends.
+        internal static int PlayIndex (int count, float fps, bool pingPong)
+        {
+            if (count <= 1)
+                return 0;
+
+            var frame = (int) (EditorApplication.timeSinceStartup * fps);
+
+            if (!pingPong)
+                return frame % count;
+
+            var cycle = frame % (count * 2 - 2);
+
+            return cycle < count ? cycle : count * 2 - 2 - cycle;
+        }
+
+        private static Texture2D checkerTexture;
+
+        // A grey checkerboard, 8 points a square, to show clear pixels.
+        internal static Texture2D Checker ()
+        {
+            if (checkerTexture != null)
+                return checkerTexture;
+
+            checkerTexture = new Texture2D(2, 2, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Repeat, hideFlags = HideFlags.HideAndDontSave };
+
+            var light = new Color(0.8f, 0.8f, 0.8f);
+            var dark = new Color(0.6f, 0.6f, 0.6f);
+
+            checkerTexture.SetPixels(new[] { light, dark, dark, light });
+            checkerTexture.Apply();
+
+            return checkerTexture;
+        }
+
         // A click on the original image sets the From colour.
         internal void HandlePicking (Rect previewArea, Rect[] blocked = null)
         {
