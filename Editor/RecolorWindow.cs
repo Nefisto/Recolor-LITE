@@ -11,7 +11,7 @@ namespace Nefisto.Recolor
     // Moves every pixel close to one colour over to another, keeping how far each one was from the first:
     // a darker or paler shade of the source lands as the same darker or paler shade of the target. The
     // shift happens in HSV, so the hue turns and the saturation and value keep their offsets.
-    public class RecolorWindow : EditorWindow
+    public class RecolorWindow : EditorWindow, IHasCustomMenu
     {
         internal const float PreviewPadding = 8f;
         internal const float PreviewTitleHeight = 16f;
@@ -199,7 +199,7 @@ namespace Nefisto.Recolor
         internal Color[] movedColour;
         internal bool[] movedDone;
 
-        [MenuItem("Tools/Recolor")]
+        [MenuItem("Tools/Recolor/Open", priority = 0)]
         public static void Open () => GetWindow<RecolorWindow>("Recolor");
 
         private void OnEnable ()
@@ -2488,6 +2488,12 @@ namespace Nefisto.Recolor
         }
 
         internal T Addon<T> () where T : RecolorAddon => addons.OfType<T>().FirstOrDefault();
+
+        internal IReadOnlyList<RecolorAddon> Addons => addons;
+
+        // The window's ⋮ menu: a folder with the settings, system info and images for a bug report.
+        public void AddItemsToMenu (GenericMenu menu) =>
+            menu.AddItem(new GUIContent("Create bug report..."), false, () => RecolorDebugInfo.CreateReport(this));
 
         // Repaints when an add-on asks, such as an animation moving to its next frame.
         internal void UpdateAddons ()

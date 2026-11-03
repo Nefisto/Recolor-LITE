@@ -83,6 +83,13 @@ namespace Nefisto.Recolor
         // Called on every editor update. True to repaint the window.
         internal virtual bool Update () => false;
 
+        // The add-on's state for a bug report, as JSON. Its serialized fields, unless it holds something too
+        // big to paste, such as images.
+        internal virtual string DebugState () => JsonUtility.ToJson(this, true);
+
+        // Sets the add-on back from its state in a bug report.
+        internal virtual void LoadDebugState (string json) => JsonUtility.FromJsonOverwrite(json, this);
+
         // The window lets go of its textures; the add-on lets go of its own.
         internal virtual void Release () { }
     }

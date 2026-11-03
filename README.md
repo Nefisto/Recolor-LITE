@@ -10,7 +10,7 @@ old colour changes and no fringe of it is left behind.
 - Sprite sheets: a clicked part never spills into the next frame, and **Animate frames** plays the
   recoloured frames beside the result, each by its pivot.
 
-Open it from **Tools > Recolor**.
+Open it from **Tools > Recolor > Open**. **Tools > Recolor > Help** shows the version, the edition (Free or Pro) and where to report a bug or suggest a feature. To report a bug, use **Create bug report** (also in the ⋮ menu of the Recolor window): it saves a folder with the settings and system info, the image and a READ-ME on what to send.
 
 ## Install
 
