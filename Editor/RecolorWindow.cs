@@ -27,6 +27,7 @@ namespace Nefisto.Recolor
         internal const int CommonColorCount = 16;
         internal const byte ShadeAlpha = 150;
         internal const double SlowRefreshSeconds = 0.05;
+        internal const float AreaControlsWidth = 360f;
         internal const double DragRefreshSeconds = 0.1;
 
         // Below this saturation, or this brightness, the From colour counts as a grey with no hue.
@@ -379,44 +380,6 @@ namespace Nefisto.Recolor
             foreach (var addon in addons)
                 addon.DrawAfterMatching();
 
-            var wasArea = area;
-
-            area = (AreaMode) EditorGUILayout.EnumPopup(new GUIContent("Area",
-                "Whole image changes the colour everywhere. Clicked region changes only the part you click on the original image, stopping where the colour changes sharply. Switching to it with nothing selected selects what the whole image changed, to take out what shouldn't be in it."), area);
-
-            // From the whole image to a clicked region, with nothing selected yet: start from every
-            // pixel the whole image changed, so the ones that shouldn't change can be taken out.
-            if (wasArea == AreaMode.WholeImage && area == AreaMode.ClickedRegion && !HasSelection())
-                SelectEveryMatch();
-
-            if (area == AreaMode.ClickedRegion)
-            {
-                edgeStrength = EditorGUILayout.Slider(new GUIContent("Edge strength",
-                    "How sharp a change between two neighbouring pixels has to be to stop the region, 0 to 100. Lower it when the region leaks into a part next to it; raise it when it stops inside the part, at a step of its own shading."), edgeStrength, 1f, 100f);
-
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    EditorGUILayout.PrefixLabel(new GUIContent("Selection",
-                        "How the next click selects. It doesn't change what is already selected.\n\n" +
-                        "Non-contiguous takes every pixel of the frame close to the clicked one, joined or not; the edge strength is then how far from the clicked pixel they can be. Contiguous grows from the clicked pixel to its neighbours. Single pixel takes only the clicked pixel, and dragging keeps going."));
-
-                    var way = tool == SelectTool.Pixel ? 2 : contiguous ? 1 : 0;
-
-                    way = GUILayout.Toolbar(way, new[] { "Non-contiguous", "Contiguous", "Single pixel" }, EditorStyles.miniButton);
-                    tool = way == 2 ? SelectTool.Pixel : SelectTool.Part;
-                    contiguous = way == 1 || (way == 2 && contiguous);
-                }
-
-                if (tool == SelectTool.Part && contiguous)
-                    using (new EditorGUILayout.HorizontalScope())
-                    {
-                        EditorGUILayout.PrefixLabel(new GUIContent("Grow through",
-                            "4 directions grows only to the pixels beside, above and below. 8 directions also crosses corners, so thin diagonal lines are taken whole, but the region can slip through a diagonal gap in an outline."));
-
-                        diagonals = GUILayout.Toolbar(diagonals ? 1 : 0, new[] { "4 directions", "8 directions" }, EditorStyles.miniButton) == 1;
-                    }
-            }
-
             cleanEdges = EditorGUILayout.Toggle(new GUIContent("Clean edges",
                 "Keeps anti-aliased edges and fades smooth.\n\n" +
                 "With anti-aliasing, the pixels between a red cape and its black outline are dark reds: part red, part black. Changed as they are, they would leave a reddish fringe around a blue cape.\n\n" +
@@ -579,14 +542,127 @@ namespace Nefisto.Recolor
             var before = new Rect(area.x + PreviewPadding, area.y + PreviewPadding, area.width - PreviewPadding * 2f, half);
             var after = new Rect(before.x, before.yMax + PreviewPadding, before.width, half);
 
-            DrawPreview(before, original, addons.Select(addon => addon.OriginalTitle()).FirstOrDefault(title => title != null) ?? "Original image");
+            var image = DrawOriginalPreview(before);
 
             DrawResultPreview(after);
 
-            if (this.area == AreaMode.ClickedRegion && regionShade != null && Event.current.type == EventType.Repaint)
-                GUI.DrawTexture(Inset(before), regionShade, ScaleMode.ScaleToFit, true);
+            if (image.height <= 0f)
+                return;
 
-            HandlePicking(Inset(before));
+            if (this.area == AreaMode.ClickedRegion && regionShade != null && Event.current.type == EventType.Repaint)
+                GUI.DrawTexture(image, regionShade, ScaleMode.ScaleToFit, true);
+
+            HandlePicking(image);
+        }
+
+        // The original image in its frame, with the area controls under the title, in one darker band.
+        // Returns where the image is drawn.
+        private Rect DrawOriginalPreview (Rect frame)
+        {
+            var title = addons.Select(addon => addon.OriginalTitle()).FirstOrDefault(each => each != null) ?? "Original image";
+            var rowHeight = EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing;
+            var controlsWidth = Mathf.Min(frame.width - 12f, AreaControlsWidth);
+            var addonRows = addons.Where(addon => addon.OriginalHeaderHeight > 0f).ToList();
+            var addonHeight = addonRows.Sum(addon => addon.OriginalHeaderHeight + EditorGUIUtility.standardVerticalSpacing);
+            var controls = new Rect(frame.x + 6f, frame.y + PreviewTitleHeight + 2f, controlsWidth, AreaRows() * rowHeight + addonHeight);
+
+            GUI.Box(frame, GUIContent.none, EditorStyles.helpBox);
+            DrawHeaderBand(frame, Mathf.Max(TitleWidth(title), controlsWidth + 12f), controls.yMax + 2f - frame.y);
+            GUI.Label(new Rect(frame.x + 6f, frame.y + 2f, frame.width - 12f, PreviewTitleHeight), title, EditorStyles.miniBoldLabel);
+
+            var labelWidth = EditorGUIUtility.labelWidth;
+
+            EditorGUIUtility.labelWidth = 92f;
+            DrawAreaControls(controls);
+            EditorGUIUtility.labelWidth = labelWidth;
+
+            // The add-on rows, under the area controls.
+            var y = controls.y + AreaRows() * rowHeight;
+
+            foreach (var addon in addonRows)
+            {
+                addon.DrawOriginalHeader(new Rect(controls.x, y, controls.width, addon.OriginalHeaderHeight));
+                y += addon.OriginalHeaderHeight + EditorGUIUtility.standardVerticalSpacing;
+            }
+
+            var top = controls.yMax + 4f;
+            var image = new Rect(frame.x + 4f, top, frame.width - 8f, frame.yMax - 4f - top);
+
+            if (image.height > 0f)
+                EditorGUI.DrawTextureTransparent(image, original, ScaleMode.ScaleToFit);
+
+            return image;
+        }
+
+        // How many rows the area controls take: the area, and for a clicked region its edge strength, the
+        // way a click selects and, while contiguous, the directions it grows through.
+        private int AreaRows () => area != AreaMode.ClickedRegion ? 1 : tool == SelectTool.Part && contiguous ? 4 : 3;
+
+        // The area controls, in the header of the original image, where the clicks they set happen. Drawn
+        // at set places, row under row, not by the automatic layout: the previews are drawn in their own
+        // rects, and layout calls there would not match between the passes of a frame.
+        private void DrawAreaControls (Rect controls)
+        {
+            var rowHeight = EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing;
+            var row = new Rect(controls.x, controls.y, controls.width, EditorGUIUtility.singleLineHeight);
+
+            EditorGUI.BeginChangeCheck();
+
+            var wasArea = area;
+            var areaRow = row;
+
+            // In a clicked region the row also holds Clear, greyed out while nothing is selected so the
+            // row keeps its shape.
+            if (area == AreaMode.ClickedRegion)
+            {
+                const float clearWidth = 56f;
+
+                areaRow.width -= clearWidth + 4f;
+
+                using (new EditorGUI.DisabledScope(!HasSelection()))
+                    if (GUI.Button(new Rect(areaRow.xMax + 4f, row.y, clearWidth, row.height), new GUIContent("Clear", "Clears the selection. Esc does the same."), EditorStyles.miniButton))
+                        ClearSelection();
+            }
+
+            area = (AreaMode) EditorGUI.EnumPopup(areaRow, new GUIContent("Area",
+                "Whole image changes the colour everywhere. Clicked region changes only the part you click on the original image, stopping where the colour changes sharply. Switching to it with nothing selected selects what the whole image changed, to take out what shouldn't be in it."), area);
+
+            // From the whole image to a clicked region, with nothing selected yet: start from every
+            // pixel the whole image changed, so the ones that shouldn't change can be taken out.
+            if (wasArea == AreaMode.WholeImage && area == AreaMode.ClickedRegion && !HasSelection())
+                SelectEveryMatch();
+
+            if (area == AreaMode.ClickedRegion)
+            {
+                row.y += rowHeight;
+                edgeStrength = EditorGUI.Slider(row, new GUIContent("Edge strength",
+                    "How sharp a change between two neighbouring pixels has to be to stop the region, 0 to 100. Lower it when the region leaks into a part next to it; raise it when it stops inside the part, at a step of its own shading."), edgeStrength, 1f, 100f);
+
+                row.y += rowHeight;
+
+                var buttons = EditorGUI.PrefixLabel(row, new GUIContent("Selection",
+                    "How the next click selects. It doesn't change what is already selected.\n\n" +
+                    "Non-contiguous takes every pixel of the frame close to the clicked one, joined or not; the edge strength is then how far from the clicked pixel they can be. Contiguous grows from the clicked pixel to its neighbours. Single pixel takes only the clicked pixel, and dragging keeps going."));
+                var way = tool == SelectTool.Pixel ? 2 : contiguous ? 1 : 0;
+
+                way = GUI.Toolbar(buttons, way, new[] { "Non-contiguous", "Contiguous", "Single pixel" }, EditorStyles.miniButton);
+                tool = way == 2 ? SelectTool.Pixel : SelectTool.Part;
+                contiguous = way == 1 || (way == 2 && contiguous);
+
+                if (tool == SelectTool.Part && contiguous)
+                {
+                    row.y += rowHeight;
+                    buttons = EditorGUI.PrefixLabel(row, new GUIContent("Grow through",
+                        "4 directions grows only to the pixels beside, above and below. 8 directions also crosses corners, so thin diagonal lines are taken whole, but the region can slip through a diagonal gap in an outline."));
+                    diagonals = GUI.Toolbar(buttons, diagonals ? 1 : 0, new[] { "4 directions", "8 directions" }, EditorStyles.miniButton) == 1;
+                }
+            }
+
+            if (EditorGUI.EndChangeCheck())
+            {
+                dirty = true;
+                Repaint();
+            }
         }
 
         // The result in its frame. Add-ons can put controls in rows under the title, and show something

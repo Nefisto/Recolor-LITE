@@ -60,6 +60,12 @@ namespace Nefisto.Recolor
         // Just before the result is worked out again.
         internal virtual void BeforeRecolor () { }
 
+        // The height of a row of controls in the header of the original image, under the area controls,
+        // or 0 for none.
+        internal virtual float OriginalHeaderHeight => 0f;
+
+        internal virtual void DrawOriginalHeader (Rect row) { }
+
         // The height of a row of controls under the title of the result preview, or 0 for none.
         internal virtual float ResultHeaderHeight => 0f;
 
