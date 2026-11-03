@@ -159,7 +159,8 @@ namespace Nefisto.Recolor
         internal float splitterGrab;
 
         // The grey behind notes in the previews, such as the keys and the count of changed pixels.
-        private static Color NoteColour => EditorGUIUtility.isProSkin ? new Color(1f, 1f, 1f, 0.06f) : new Color(0f, 0f, 0f, 0.07f);
+        // Lighter than the header band, so a note stands out from it, and nearly opaque over the image.
+        private static Color NoteColour => EditorGUIUtility.isProSkin ? new Color(0.32f, 0.32f, 0.32f, 0.94f) : new Color(0.93f, 0.93f, 0.93f, 0.94f);
 
         // The keys show in the original image when it is wide enough, otherwise under the settings.
         private bool keysInPreview;
@@ -531,22 +532,32 @@ namespace Nefisto.Recolor
             var before = new Rect(area.x + PreviewPadding, area.y + PreviewPadding, area.width - PreviewPadding * 2f, half);
             var after = new Rect(before.x, before.yMax + PreviewPadding, before.width, half);
 
-            var image = DrawOriginalPreview(before);
+            // The original image takes its whole frame under the title, whatever the header holds, and the
+            // header is drawn over it: the image keeps its size when the area changes.
+            var image = Inset(before);
+
+            GUI.Box(before, GUIContent.none, EditorStyles.helpBox);
+
+            if (image.height > 0f)
+            {
+                EditorGUI.DrawTextureTransparent(image, original, ScaleMode.ScaleToFit);
+
+                if (this.area == AreaMode.ClickedRegion && regionShade != null && Event.current.type == EventType.Repaint)
+                    GUI.DrawTexture(image, regionShade, ScaleMode.ScaleToFit, true);
+            }
+
+            var header = DrawOriginalHeader(before);
 
             DrawResultPreview(after);
 
-            if (image.height <= 0f)
-                return;
-
-            if (this.area == AreaMode.ClickedRegion && regionShade != null && Event.current.type == EventType.Repaint)
-                GUI.DrawTexture(image, regionShade, ScaleMode.ScaleToFit, true);
-
-            HandlePicking(image);
+            // Clicks on the header are its own, not picks on the image under it.
+            if (image.height > 0f)
+                HandlePicking(image, header);
         }
 
-        // The original image in its frame, with the area controls under the title, in one darker band.
-        // Returns where the image is drawn.
-        private Rect DrawOriginalPreview (Rect frame)
+        // The title, the area controls and the keys of the original image, over its top. Returns where they
+        // are, so clicks there don't reach the image.
+        private Rect[] DrawOriginalHeader (Rect frame)
         {
             var title = addons.Select(addon => addon.OriginalTitle()).FirstOrDefault(each => each != null) ?? "Original image";
             var rowHeight = EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing;
@@ -554,9 +565,9 @@ namespace Nefisto.Recolor
             var addonRows = addons.Where(addon => addon.OriginalHeaderHeight > 0f).ToList();
             var addonHeight = addonRows.Sum(addon => addon.OriginalHeaderHeight + EditorGUIUtility.standardVerticalSpacing);
             var controls = new Rect(frame.x + 6f, frame.y + PreviewTitleHeight + 2f, controlsWidth, AreaRows() * rowHeight + addonHeight);
+            var band = HeaderBand(frame, Mathf.Max(TitleWidth(title), controlsWidth + 12f), controls.yMax + 2f - frame.y);
 
-            GUI.Box(frame, GUIContent.none, EditorStyles.helpBox);
-            DrawHeaderBand(frame, Mathf.Max(TitleWidth(title), controlsWidth + 12f), controls.yMax + 2f - frame.y);
+            DrawBand(band);
             GUI.Label(new Rect(frame.x + 6f, frame.y + 2f, frame.width - 12f, PreviewTitleHeight), title, EditorStyles.miniBoldLabel);
 
             var labelWidth = EditorGUIUtility.labelWidth;
@@ -574,14 +585,9 @@ namespace Nefisto.Recolor
                 y += addon.OriginalHeaderHeight + EditorGUIUtility.standardVerticalSpacing;
             }
 
-            // The image starts under the header, or under the keys when they reach lower.
-            var top = DrawKeysBox(frame, controls.xMax, controls.yMax) + 4f;
-            var image = new Rect(frame.x + 4f, top, frame.width - 8f, frame.yMax - 4f - top);
+            var keys = DrawKeysBox(frame, controls.xMax);
 
-            if (image.height > 0f)
-                EditorGUI.DrawTextureTransparent(image, original, ScaleMode.ScaleToFit);
-
-            return image;
+            return keys.width > 0f ? new[] { band, keys } : new[] { band };
         }
 
         // How many rows the area controls take: the area, and for a clicked region its edge strength, the
@@ -810,8 +816,8 @@ namespace Nefisto.Recolor
 
         // The keys in a grey box at the top right of the original image, like a note. Left out, and shown
         // under the settings instead, when the frame is too narrow to hold them beside the area controls.
-        // Returns the bottom of the box, or of the header when there is none.
-        private float DrawKeysBox (Rect frame, float controlsRight, float headerBottom)
+        // Returns where the box is, or an empty rect when it is left out.
+        private Rect DrawKeysBox (Rect frame, float controlsRight)
         {
             const float keysWidth = 74f;
             const float actionWidth = 124f;
@@ -825,7 +831,7 @@ namespace Nefisto.Recolor
             keysInPreview = box.x >= controlsRight + 8f;
 
             if (!keysInPreview)
-                return headerBottom;
+                return Rect.zero;
 
             if (Event.current.type == EventType.Repaint)
             {
@@ -840,7 +846,7 @@ namespace Nefisto.Recolor
                 }
             }
 
-            return Mathf.Max(headerBottom, box.yMax);
+            return box;
         }
 
         // A bold title with an arrow that opens and closes the section under it. A click on the title works too.
@@ -864,14 +870,16 @@ namespace Nefisto.Recolor
         }
 
         // A darker band at the top left of a frame, behind its title, as wide as what it holds.
-        private static void DrawHeaderBand (Rect frame, float width, float height)
+        private static void DrawHeaderBand (Rect frame, float width, float height) => DrawBand(HeaderBand(frame, width, height));
+
+        private static Rect HeaderBand (Rect frame, float width, float height)
+            => new(frame.x + 1f, frame.y + 1f, Mathf.Min(width, frame.width - 2f), height - 1f);
+
+        // Nearly opaque, as it can sit over the image.
+        private static void DrawBand (Rect band)
         {
-            if (Event.current.type != EventType.Repaint)
-                return;
-
-            var colour = EditorGUIUtility.isProSkin ? new Color(0f, 0f, 0f, 0.25f) : new Color(0f, 0f, 0f, 0.08f);
-
-            EditorGUI.DrawRect(new Rect(frame.x + 1f, frame.y + 1f, Mathf.Min(width, frame.width - 2f), height - 1f), colour);
+            if (Event.current.type == EventType.Repaint)
+                EditorGUI.DrawRect(band, EditorGUIUtility.isProSkin ? new Color(0.16f, 0.16f, 0.16f, 0.92f) : new Color(0.76f, 0.76f, 0.76f, 0.92f));
         }
 
         // The title's width, with the room on both sides of it.
@@ -882,7 +890,7 @@ namespace Nefisto.Recolor
             => new(frame.x + 4f, frame.y + PreviewTitleHeight + 2f, frame.width - 8f, frame.height - PreviewTitleHeight - 6f);
 
         // A click on the original image sets the From colour.
-        internal void HandlePicking (Rect previewArea)
+        internal void HandlePicking (Rect previewArea, Rect[] blocked = null)
         {
             var current = Event.current;
             var image = FitRect(previewArea, original);
@@ -900,6 +908,10 @@ namespace Nefisto.Recolor
             // Repaint on every move so the loupe follows the cursor and goes away when it leaves the image.
             if (current.type == EventType.MouseMove)
                 Repaint();
+
+            // Over the header: its controls take the click, and the zoom stays out of their way.
+            if (blocked != null && blocked.Any(rect => rect.Contains(current.mousePosition)))
+                return;
 
             if (!TryGetPixel(image, current.mousePosition, out var hovered, out var coords))
                 return;
