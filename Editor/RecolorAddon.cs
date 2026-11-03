@@ -56,7 +56,15 @@ namespace Nefisto.Recolor
         // Just before the result is worked out again.
         internal virtual void BeforeRecolor () { }
 
-        // Draws something in place of the result preview. True when it did.
+        // The height of a row of controls under the title of the result preview, or 0 for none.
+        internal virtual float ResultHeaderHeight => 0f;
+
+        // How wide the row's controls are, for the band behind them. 0 takes the whole row.
+        internal virtual float ResultHeaderWidth => 0f;
+
+        internal virtual void DrawResultHeader (Rect row) { }
+
+        // Draws something in place of the result, inside its frame. True when it did.
         internal virtual bool DrawResult (Rect area) => false;
 
         // A title for the original image preview instead of "Original image".

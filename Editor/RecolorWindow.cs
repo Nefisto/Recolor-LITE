@@ -553,14 +553,56 @@ namespace Nefisto.Recolor
 
             DrawPreview(before, original, addons.Select(addon => addon.OriginalTitle()).FirstOrDefault(title => title != null) ?? "Original image");
 
-            // An add-on can show something else in place of the result, such as an animation.
-            if (!addons.Any(addon => addon.DrawResult(after)))
-                DrawPreview(after, result, "Preview");
+            DrawResultPreview(after);
 
             if (this.area == AreaMode.ClickedRegion && regionShade != null && Event.current.type == EventType.Repaint)
                 GUI.DrawTexture(Inset(before), regionShade, ScaleMode.ScaleToFit, true);
 
             HandlePicking(Inset(before));
+        }
+
+        // The result in its frame. Add-ons can put controls in rows under the title, and show something
+        // else in place of the result, such as an animation.
+        private void DrawResultPreview (Rect frame)
+        {
+            GUI.Box(frame, GUIContent.none, EditorStyles.helpBox);
+
+            // The title and the add-on rows share one darker band, as wide as the widest of them.
+            var top = frame.y + PreviewTitleHeight + 2f;
+            var rows = addons.Where(addon => addon.ResultHeaderHeight > 0f).ToList();
+            var headerHeight = rows.Sum(addon => addon.ResultHeaderHeight + 2f);
+            var headerWidth = rows.Select(addon => addon.ResultHeaderWidth > 0f ? addon.ResultHeaderWidth : frame.width)
+                .DefaultIfEmpty(0f)
+                .Max();
+
+            DrawHeaderBand(frame, Mathf.Max(TitleWidth("Preview"), headerWidth + 12f), top + headerHeight - frame.y);
+            GUI.Label(new Rect(frame.x + 6f, frame.y + 2f, frame.width - 12f, PreviewTitleHeight), "Preview", EditorStyles.miniBoldLabel);
+
+            foreach (var addon in addons)
+            {
+                var height = addon.ResultHeaderHeight;
+
+                if (height <= 0f)
+                    continue;
+
+                addon.DrawResultHeader(new Rect(frame.x + 6f, top, frame.width - 12f, height));
+                top += height + 2f;
+            }
+
+            var content = new Rect(frame.x + 4f, top, frame.width - 8f, frame.yMax - 4f - top);
+
+            if (content.height <= 0f)
+                return;
+
+            if (!addons.Any(addon => addon.DrawResult(content)))
+                EditorGUI.DrawTextureTransparent(content, result, ScaleMode.ScaleToFit);
+        }
+
+        // An image with a small label over it, such as one side of the preview split in two.
+        internal static void DrawLabelledImage (Rect area, Texture2D texture, string label)
+        {
+            GUI.Label(new Rect(area.x + 2f, area.y, area.width - 4f, PreviewTitleHeight), label, EditorStyles.miniLabel);
+            EditorGUI.DrawTextureTransparent(new Rect(area.x, area.y + PreviewTitleHeight, area.width, area.height - PreviewTitleHeight), texture, ScaleMode.ScaleToFit);
         }
 
         // The colour the result goes to: the To colour, or what an add-on asks for, such as a step of a
@@ -649,9 +691,24 @@ namespace Nefisto.Recolor
         internal static void DrawPreview (Rect frame, Texture2D texture, string title)
         {
             GUI.Box(frame, GUIContent.none, EditorStyles.helpBox);
+            DrawHeaderBand(frame, TitleWidth(title), PreviewTitleHeight + 2f);
             GUI.Label(new Rect(frame.x + 6f, frame.y + 2f, frame.width - 12f, PreviewTitleHeight), title, EditorStyles.miniBoldLabel);
             EditorGUI.DrawTextureTransparent(Inset(frame), texture, ScaleMode.ScaleToFit);
         }
+
+        // A darker band at the top left of a frame, behind its title, as wide as what it holds.
+        private static void DrawHeaderBand (Rect frame, float width, float height)
+        {
+            if (Event.current.type != EventType.Repaint)
+                return;
+
+            var colour = EditorGUIUtility.isProSkin ? new Color(0f, 0f, 0f, 0.25f) : new Color(0f, 0f, 0f, 0.08f);
+
+            EditorGUI.DrawRect(new Rect(frame.x + 1f, frame.y + 1f, Mathf.Min(width, frame.width - 2f), height - 1f), colour);
+        }
+
+        // The title's width, with the room on both sides of it.
+        private static float TitleWidth (string title) => EditorStyles.miniBoldLabel.CalcSize(new GUIContent(title)).x + 12f;
 
         // The image area of a frame, below its title.
         internal static Rect Inset (Rect frame)
