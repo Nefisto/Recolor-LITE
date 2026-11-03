@@ -257,7 +257,12 @@ namespace Nefisto.Recolor
                     ready = DrawOptions();
                     EditorGUILayout.EndScrollView();
 
-                    // Always in full at the bottom, outside the scroll.
+                    // Always in full at the bottom, outside the scroll: what the add-ons keep there, then
+                    // the shortcuts.
+                    if (ready)
+                        foreach (var addon in addons)
+                            addon.DrawFooter();
+
                     DrawShortcuts();
                 }
 

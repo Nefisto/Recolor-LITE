@@ -45,6 +45,10 @@ namespace Nefisto.Recolor
         // After the save buttons, at the end of the settings.
         internal virtual void DrawSections () { }
 
+        // At the bottom of the settings column, outside its scroll, just above the shortcuts. Only while
+        // an image is open.
+        internal virtual void DrawFooter () { }
+
         // A colour for the result to go to instead of the To colour.
         internal virtual bool TargetColour (out Color colour)
         {
