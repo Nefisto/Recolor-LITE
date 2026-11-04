@@ -10,7 +10,7 @@ old colour changes and no fringe of it is left behind.
 - Sprite sheets: a clicked part never spills into the next frame, and **Animate frames** plays the
   recoloured frames beside the result, each by its pivot.
 
-## Contents
+## Documentation
 
 - [Install](#install)
 - [Quick start](#quick-start)
@@ -31,7 +31,7 @@ old colour changes and no fringe of it is left behind.
 Requires **Unity 2022.3** or newer. Recolor is editor-only: nothing is added to your build.
 
 - **Asset Store:** in **Window > Package Manager**, pick **My Assets**, find Recolor and click
-  **Install**.
+  **Download**, then **Import**. It's added under **Packages**, beside Unity's packages.
 - **Git URL:** in **Window > Package Manager**, **+ > Add package from git URL**, with
   `https://github.com/Nefisto/Recolor-LITE.git`.
 
@@ -184,8 +184,8 @@ Recolor Pro, on the Unity Asset Store, adds what sprite sheets need: the selecti
 frame, save points, saved selections, colour variants and transition sheets. It adds them to the
 same Recolor window.
 
-Recolor Pro already includes this package. Before installing Pro, remove Recolor in
-**Window > Package Manager**: select **Recolor** and click **Remove**.
+Recolor Pro already includes this package, so you can install Pro over it and everything keeps
+working. To remove this one afterwards, use **Tools > Recolor > Remove Recolor LITE**.
 
 ## Support
 

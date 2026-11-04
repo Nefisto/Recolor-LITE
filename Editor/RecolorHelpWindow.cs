@@ -19,9 +19,13 @@ namespace Nefisto.Recolor
 
         private const string ProFeatures = "Pro adds Apply to all frames, Variants, Transition sheets, Save points and Saved selections.";
 
+        // The logo's height in the window; its width follows the image.
+        private const float LogoHeight = 36f;
+
         private string liteVersion;
         private string proVersion;
         private bool proInstalled;
+        private Texture2D logo;
 
         [MenuItem("Tools/Recolor/Help", priority = 100)]
         public static void Open ()
@@ -36,12 +40,32 @@ namespace Nefisto.Recolor
             liteVersion = RecolorDebugInfo.LiteVersion;
             proInstalled = RecolorDebugInfo.ProInstalled;
             proVersion = proInstalled ? RecolorDebugInfo.ProVersion : null;
+            logo = LoadLogo();
+        }
+
+        // RecolorLogo.png sits next to this script, wherever the package is (Recolor, or inside Recolor Pro).
+        private Texture2D LoadLogo ()
+        {
+            var script = AssetDatabase.GetAssetPath(MonoScript.FromScriptableObject(this));
+            if (string.IsNullOrEmpty(script))
+                return null;
+
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(System.IO.Path.GetDirectoryName(script).Replace('\\', '/') + "/RecolorLogo.png");
         }
 
         private string Edition => proInstalled ? "Pro" : "Free";
 
         private void OnGUI ()
         {
+            // Short labels, so the values stay clear of the logo in the top right corner.
+            EditorGUIUtility.labelWidth = 70f;
+
+            if (logo != null)
+            {
+                var width = LogoHeight * logo.width / logo.height;
+                GUI.DrawTexture(new Rect(position.width - width - 10f, 8f, width, LogoHeight), logo, ScaleMode.ScaleToFit);
+            }
+
             EditorGUILayout.Space(8f);
             EditorGUILayout.LabelField("Recolor", EditorStyles.boldLabel);
             EditorGUILayout.LabelField("Version", liteVersion ?? "Unknown");
