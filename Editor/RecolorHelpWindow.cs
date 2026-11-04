@@ -5,11 +5,15 @@ using UnityEngine;
 namespace Nefisto.Recolor
 {
     // Shows the version of Recolor, its edition (Free, or Pro when Recolor Pro is in the project), a link
-    // to buy Pro, and how to report a bug: create a bug report and email it.
+    // to buy Pro, a link to review the edition in use, and how to report a bug: create a bug report and
+    // email it.
     internal class RecolorHelpWindow : EditorWindow
     {
         // The Asset Store page of Recolor Pro. Empty until it is published; the buy button waits for it.
         internal const string ProUrl = "";
+
+        // The Asset Store page of the free Recolor. Empty until it is published; the review link waits for it.
+        internal const string LiteUrl = "";
 
         internal const string ContactEmail = "nefisto.developer@gmail.com";
 
@@ -24,7 +28,7 @@ namespace Nefisto.Recolor
         {
             var window = GetWindow<RecolorHelpWindow>(true, "Recolor Help");
 
-            window.minSize = window.maxSize = new Vector2(340f, 190f);
+            window.minSize = window.maxSize = new Vector2(340f, 210f);
         }
 
         private void OnEnable ()
@@ -63,6 +67,8 @@ namespace Nefisto.Recolor
                 }
             }
 
+            DrawReview();
+
             EditorGUILayout.Space(12f);
 
             using (new EditorGUILayout.HorizontalScope())
@@ -82,6 +88,26 @@ namespace Nefisto.Recolor
 
             if (GUILayout.Button(create))
                 RecolorDebugInfo.CreateReport();
+        }
+
+        // A link to the reviews of the edition in use, on its Asset Store page. Off until the page exists.
+        private void DrawReview ()
+        {
+            var page = proInstalled ? ProUrl : LiteUrl;
+            var hasPage = !string.IsNullOrEmpty(page);
+
+            EditorGUILayout.Space(6f);
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                GUILayout.Label("Enjoying Recolor?", EditorStyles.miniLabel, GUILayout.ExpandWidth(false));
+
+                using (new EditorGUI.DisabledScope(!hasPage))
+                    if (EditorGUILayout.LinkButton(new GUIContent("Leave a review", hasPage ? "Opens the reviews on the Unity Asset Store." : "Coming soon to the Unity Asset Store.")))
+                        Application.OpenURL(page + "#reviews");
+
+                GUILayout.FlexibleSpace();
+            }
         }
 
         // A new email with the edition and version in the subject, and what to send in the body.

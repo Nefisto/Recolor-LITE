@@ -16,7 +16,18 @@ namespace Nefisto.Recolor
     {
         private const string ProAssembly = "Nefisto.Recolor.Pro.Editor";
 
-        internal static string LiteVersion => VersionOf(typeof(RecolorWindow).Assembly);
+        private const string BaseAssembly = "Nefisto.Recolor.Base.Editor";
+
+        // True when this code is the copy of Recolor that Recolor Pro includes, used when Recolor (free)
+        // isn't in the project.
+        internal static bool BuiltIntoPro => typeof(RecolorWindow).Assembly.GetName().Name == BaseAssembly;
+
+        // The version of Recolor in use: its package's, or the one copied into Pro.
+        internal static string LiteVersion => BuiltIntoPro ? IncludedVersion() : VersionOf(typeof(RecolorWindow).Assembly);
+
+        // Pro keeps the version of the Recolor it includes in IncludedBase.Version.
+        private static string IncludedVersion () =>
+            ProAssemblyLoaded?.GetType("Nefisto.Recolor.IncludedBase")?.GetField("Version", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public)?.GetRawConstantValue() as string;
 
         internal static Assembly ProAssemblyLoaded =>
             AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(assembly => assembly.GetName().Name == ProAssembly);
@@ -41,6 +52,7 @@ namespace Nefisto.Recolor
         {
             public string edition;
             public string recolorVersion;
+            public string recolorSource;
             public string proVersion;
             public string unityVersion;
             public string os;
@@ -101,6 +113,7 @@ namespace Nefisto.Recolor
             {
                 edition = ProInstalled ? "Pro" : "Free",
                 recolorVersion = LiteVersion ?? "Unknown",
+                recolorSource = BuiltIntoPro ? "Built into Pro" : "Recolor package",
                 proVersion = ProVersion,
                 unityVersion = Application.unityVersion,
                 os = SystemInfo.operatingSystem,
