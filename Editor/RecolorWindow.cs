@@ -2383,7 +2383,12 @@ namespace Nefisto.Recolor
             to.spritePixelsPerUnit = from.spritePixelsPerUnit;
             to.spriteBorder = from.spriteBorder;
     #pragma warning disable CS0618
-            to.spritesheet = from.spritesheet;
+            to.spritesheet = from.spritesheet.Select(sprite =>
+            {
+                sprite.name = RenamedSprite(sprite.name, fromPath, toPath);
+
+                return sprite;
+            }).ToArray();
     #pragma warning restore CS0618
             // Setting the sprites alone doesn't mark the importer as changed, so the reimport would skip them.
             EditorUtility.SetDirty(to);
@@ -2434,7 +2439,7 @@ namespace Nefisto.Recolor
     #pragma warning disable CS0618
             to.spritesheet = sprites.Select(sprite => new SpriteMetaData
             {
-                name = sprite.name,
+                name = RenamedSprite(sprite.name, fromPath, to.assetPath),
                 rect = Shifted(sprite.rect),
                 alignment = (int) SpriteAlignment.Custom,
                 pivot = PivotOf(sprite),
@@ -2444,6 +2449,22 @@ namespace Nefisto.Recolor
             // Setting the sprites alone doesn't mark the importer as changed, so the reimport would skip them.
             EditorUtility.SetDirty(to);
             to.SaveAndReimport();
+        }
+
+        // A sprite named after the original file takes the new file's name: melon_walk_1 saved in
+        // melon_walk_recolored.png becomes melon_walk_recolored_1. Other names, such as head, stay.
+        internal static string RenamedSprite (string name, string fromPath, string toPath)
+        {
+            var from = Path.GetFileNameWithoutExtension(fromPath);
+            var to = Path.GetFileNameWithoutExtension(toPath);
+
+            if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(from) || !name.StartsWith(from, StringComparison.Ordinal))
+                return name;
+
+            // melon_walker_1 is its own name, not melon_walk followed by more.
+            var rest = name.Substring(from.Length);
+
+            return rest.Length == 0 || !char.IsLetter(rest[0]) ? to + rest : name;
         }
 
         // The pivot of a sprite from 0 to 1 across its rect, as the importer takes it.
