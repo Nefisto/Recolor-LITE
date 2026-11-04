@@ -1,6 +1,6 @@
 {
   "name": "com.nefisto.recolor",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "displayName": "Recolor",
   "description": "Editor tool that swaps a colour in an image while keeping its shading and its anti-aliased edges clean.",
   "unity": "2022.3",
