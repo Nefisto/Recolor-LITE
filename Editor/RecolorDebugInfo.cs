@@ -104,6 +104,10 @@ namespace Nefisto.Recolor
             public List<RegionSeed> seeds;
             public List<Vector2Int> addedPixels;
             public List<Vector2Int> removedPixels;
+            public string nameMode;
+            public string nameStart;
+            public string nameEnd;
+            public string customName;
         }
 
         // The whole report as JSON. The window can be null, when Recolor isn't open: then only the product goes.
@@ -195,7 +199,11 @@ namespace Nefisto.Recolor
             changedPixels = window.changedPixels,
             seeds = window.seeds,
             addedPixels = window.addedPixels,
-            removedPixels = window.removedPixels
+            removedPixels = window.removedPixels,
+            nameMode = window.nameMode.ToString(),
+            nameStart = window.nameStart,
+            nameEnd = window.nameEnd,
+            customName = window.customName
         };
 
         private static RecolorWindow OpenWindow => Resources.FindObjectsOfTypeAll<RecolorWindow>().FirstOrDefault();

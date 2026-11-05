@@ -149,8 +149,19 @@ Frames play in name order, with numbers read as numbers, so `walk_10` comes afte
 
 ## Saving
 
-- **Save as new image** saves a PNG next to the original, named `<name>_recolored.png`. It copies the
-  original's import settings, so a sliced sheet stays sliced.
+- **Save as new image** saves a PNG next to the original. It copies the original's import settings, so
+  a sliced sheet stays sliced, and its sprites are renamed after the new file.
+- **File name** sets what the new image is called: pick the mode with the small menu button beside it,
+  and type the text in the field.
+  - **Suffix** (the mode it starts in): the image's name, then your text. The text starts as
+    `_recolored`, so `hero.png` saves `hero_recolored.png`; change it to `_blue` to save `hero_blue.png`.
+  - **Prefix:** your text, then `_recolored`: `villain` saves `villain_recolored.png`.
+  - **Custom name:** your text only: `hero_red` saves `hero_red.png`.
+
+  An empty field saves as `<name>_recolored.png`. Each image keeps its own file name: opening another
+  image brings back what was set for it, or the default. They're found by the image's GUID, so they
+  survive a rename or a move, and stored in `ProjectSettings/RecolorFileNames.json`. An existing file is never replaced: when the name is
+  taken, Unity adds a number to it, and a line under the field says so.
 - **Overwrite original** replaces the original file. It asks first, and Undo won't bring the file
   back. Only PNG originals can be overwritten.
 

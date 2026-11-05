@@ -50,6 +50,17 @@ namespace Nefisto.Recolor
             ClickedRegion
         }
 
+        // How Save as new image names the file. Suffix: the image's name, then the user's text, which starts
+        // as _recolored. Prefix: the user's text, then _recolored. Custom name: the user's text only.
+        internal enum NameMode
+        {
+            Suffix,
+            Prefix,
+
+            [InspectorName("Custom name")]
+            CustomName
+        }
+
         [SerializeField]
         internal Texture2D source;
 
@@ -115,6 +126,21 @@ namespace Nefisto.Recolor
 
         [SerializeField]
         internal float mixTolerance = 16f;
+
+        // The name of a new image. Each mode keeps its own text, so switching back and forth loses nothing.
+        [SerializeField]
+        internal NameMode nameMode = NameMode.Suffix;
+
+        // Typed in Prefix mode, before _recolored.
+        [SerializeField]
+        internal string nameStart = "";
+
+        // Typed in Suffix mode, after the image's name.
+        [SerializeField]
+        internal string nameEnd = Suffix;
+
+        [SerializeField]
+        internal string customName = "";
 
         // The Pro features, and any other add-on found in the project, one of each, kept with the window.
         [SerializeReference]
@@ -447,6 +473,8 @@ namespace Nefisto.Recolor
                         EditorGUILayout.ColorField(new GUIContent("From lands on",
                             "The To colour would push the lightest or darkest shades past the limit and merge them, so every shade moved only as far as fits. A slightly lighter or darker To colour moves the From colour closer to it, or Keep shading can be turned off."), landedColor);
             }
+
+            DrawFileName();
 
             using (new EditorGUILayout.HorizontalScope())
             {
@@ -2317,12 +2345,201 @@ namespace Nefisto.Recolor
         internal static bool Approximately (Color a, Color b)
             => Mathf.Abs(a.r - b.r) < 0.01f && Mathf.Abs(a.g - b.g) < 0.01f && Mathf.Abs(a.b - b.b) < 0.01f;
 
+        // The modes in the File name menu, in the order of NameMode.
+        private static readonly GUIContent[] NameModeItems =
+        {
+            new("Suffix"),
+            new("Prefix"),
+            new("Custom name")
+        };
+
+        private static GUIStyle nameMenuStyle;
+        private static GUIStyle hintStyle;
+        private const string FileNameControl = "Nefisto.Recolor.FileName";
+        private bool focusFileName;
+
+        // The image the File name settings were loaded for. Another image loads its own.
+        [NonSerialized]
+        private string fileNameGuid;
+
+        // The File name settings were set from elsewhere, such as a bug report: they stay for this image,
+        // instead of being replaced by the ones kept for it.
+        internal void KeepFileName () => fileNameGuid = AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(source));
+
+        // Each image keeps its own File name, so another image doesn't take this one's: it gets what was
+        // set for it before, or the default.
+        private void LoadFileName (string guid)
+        {
+            fileNameGuid = guid;
+
+            var entry = string.IsNullOrEmpty(guid) ? null : RecolorFileNames.Find(guid);
+
+            nameMode = entry?.mode ?? NameMode.Suffix;
+            nameStart = entry?.nameStart ?? "";
+            nameEnd = entry?.nameEnd ?? Suffix;
+            customName = entry?.customName ?? "";
+        }
+
+        // A File name row: the label, then the small menu button that picks the mode. Returns the room left
+        // for the fields. Picking a mode with text sets focus, to put the cursor in its field.
+        internal static Rect FileNameRow (GUIContent label, ref NameMode mode, ref bool focus)
+            => NameMenu(EditorGUI.PrefixLabel(EditorGUILayout.GetControlRect(), label), ref mode, ref focus);
+
+        // The small menu button at the start of rect, and the room left after it.
+        internal static Rect NameMenu (Rect rect, ref NameMode mode, ref bool focus)
+        {
+            nameMenuStyle ??= new GUIStyle(GUI.skin.GetStyle("PaneOptions")) { imagePosition = ImagePosition.ImageOnly };
+
+            var button = new Rect(rect.x, rect.y + nameMenuStyle.margin.top, nameMenuStyle.fixedWidth + nameMenuStyle.margin.right, rect.height);
+            var picked = (NameMode) EditorGUI.Popup(button, GUIContent.none, (int) mode, NameModeItems, nameMenuStyle);
+
+            if (picked != mode)
+            {
+                mode = picked;
+                focus = true;
+            }
+
+            return new Rect(button.xMax + 2f, rect.y, rect.xMax - button.xMax - 2f, rect.height);
+        }
+
+        // The label, a small menu button to pick the mode, and the text of that mode. An existing file is
+        // never replaced: Unity adds a number to the name instead, and a line under the field says so.
+        private void DrawFileName ()
+        {
+            var guid = AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(source));
+
+            if (guid != fileNameGuid)
+                LoadFileName(guid);
+
+            EditorGUI.BeginChangeCheck();
+
+            var field = FileNameRow(new GUIContent("File name",
+                "How Save as new image names the new file. Pick how with the menu button.\n\n" +
+                "Suffix: the image's name, then your text (_recolored to start with).\n" +
+                "Prefix: your text, then _recolored.\n" +
+                "Custom name: your text only."), ref nameMode, ref focusFileName);
+
+            switch (nameMode)
+            {
+                case NameMode.Prefix:
+                {
+                    var (text, kept) = SplitField(field, Suffix, false);
+                    nameStart = TextWithHint(text, nameStart, "e.g. villain", FileNameControl, ref focusFileName, this);
+                    KeptField(kept, Suffix);
+                    break;
+                }
+                case NameMode.CustomName:
+                    customName = TextWithHint(field, customName, "Name, e.g. hero_blue", FileNameControl, ref focusFileName, this);
+                    break;
+                default:
+                {
+                    var (text, kept) = SplitField(field, SourceName(), true);
+                    KeptField(kept, SourceName());
+                    nameEnd = TextWithHint(text, nameEnd, "e.g. _blue", FileNameControl, ref focusFileName, this);
+                    break;
+                }
+            }
+
+            if (EditorGUI.EndChangeCheck())
+                RecolorFileNames.Set(guid, nameMode, nameStart, nameEnd, customName);
+
+            // Only when the name is taken: Unity adds a number to it, so the image is saved under another name.
+            var wanted = NewName() + ".png";
+            var saved = Path.GetFileName(NewPath());
+
+            if (saved != wanted)
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    GUILayout.Space(EditorGUIUtility.labelWidth + 2f);
+                    GUILayout.Label($"{wanted} already exists: it saves as {saved}", EditorStyles.miniLabel);
+                }
+        }
+
+        // For a suffix or a prefix, the field splits in two: the part that stays, which can't be edited, and
+        // the user's text beside it. The part that stays takes the room it needs, up to half the field.
+        internal static (Rect text, Rect kept) SplitField (Rect field, string kept, bool keptFirst)
+        {
+            const float gap = 2f;
+            var needed = EditorStyles.textField.CalcSize(new GUIContent(kept)).x;
+            var keptWidth = Mathf.Clamp(needed, 40f, (field.width - gap) * 0.5f);
+            var textWidth = field.width - keptWidth - gap;
+
+            return keptFirst
+                ? (new Rect(field.x + keptWidth + gap, field.y, textWidth, field.height), new Rect(field.x, field.y, keptWidth, field.height))
+                : (new Rect(field.x, field.y, textWidth, field.height), new Rect(field.x + textWidth + gap, field.y, keptWidth, field.height));
+        }
+
+        internal static void KeptField (Rect rect, string kept)
+        {
+            using (new EditorGUI.DisabledScope(true))
+                EditorGUI.TextField(rect, kept);
+        }
+
+        internal string SourceName () => Path.GetFileNameWithoutExtension(AssetDatabase.GetAssetPath(source));
+
+        // A text field that shows a grey hint while it's empty. With focus set, it takes the cursor.
+        internal static string TextWithHint (Rect rect, string text, string hint, string control, ref bool focus, EditorWindow owner)
+        {
+            GUI.SetNextControlName(control);
+            text = EditorGUI.TextField(rect, text);
+
+            if (focus)
+            {
+                focus = false;
+                EditorGUI.FocusTextInControl(control);
+                owner.Repaint();
+            }
+
+            if (string.IsNullOrEmpty(text) && Event.current.type == EventType.Repaint)
+            {
+                hintStyle ??= new GUIStyle(EditorStyles.label) { normal = { textColor = Color.gray } };
+                hintStyle.Draw(new Rect(rect.x + 2f, rect.y, rect.width - 2f, rect.height), hint, false, false, false, false);
+            }
+
+            return text;
+        }
+
+        // The new image's name, without the extension. Characters a file name can't have are left out, and
+        // an empty name falls back to the default.
+        internal string NewName ()
+        {
+            var name = SourceName();
+            var fallback = name + Suffix;
+
+            var text = nameMode switch
+            {
+                NameMode.Prefix => Clean(nameStart),
+                NameMode.Suffix => Clean(nameEnd),
+                NameMode.CustomName => Clean(customName),
+                _ => ""
+            };
+
+            if (string.IsNullOrWhiteSpace(text))
+                return fallback;
+
+            return nameMode switch
+            {
+                NameMode.Prefix => text.Trim() + Suffix,
+                NameMode.Suffix => name + text.TrimEnd(),
+                _ => text.Trim()
+            };
+        }
+
+        internal static string Clean (string text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return "";
+
+            var invalid = Path.GetInvalidFileNameChars();
+
+            return new string(text.Where(c => Array.IndexOf(invalid, c) < 0 && c != '/' && c != '\\').ToArray());
+        }
+
         internal string NewPath ()
         {
-            var path = AssetDatabase.GetAssetPath(source);
-            var folder = Path.GetDirectoryName(path)?.Replace('\\', '/');
+            var folder = Path.GetDirectoryName(AssetDatabase.GetAssetPath(source))?.Replace('\\', '/');
 
-            return AssetDatabase.GenerateUniqueAssetPath($"{folder}/{Path.GetFileNameWithoutExtension(path)}{Suffix}.png");
+            return AssetDatabase.GenerateUniqueAssetPath($"{folder}/{NewName()}.png");
         }
 
         // A new image takes the original's import settings, so a sliced sprite stays sliced.
