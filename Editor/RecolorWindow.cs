@@ -487,7 +487,7 @@ namespace Nefisto.Recolor
             }
 
             foreach (var addon in addons)
-                addon.DrawSections();
+                DrawSection(addon);
 
             return true;
         }
@@ -895,10 +895,38 @@ namespace Nefisto.Recolor
         }
 
         // A bold title with an arrow that opens and closes the section under it. A click on the title works too.
+        // An add-on's sections, in a tinted box when it has a colour.
+        private static void DrawSection (RecolorAddon addon)
+        {
+            var tint = addon.SectionTint;
+
+            if (tint.a <= 0f)
+            {
+                addon.DrawSections();
+
+                return;
+            }
+
+            EditorGUILayout.Space(4f);
+
+            var box = EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+
+            try
+            {
+                if (Event.current.type == EventType.Repaint)
+                    EditorGUI.DrawRect(new Rect(box.x + 1f, box.y + 1f, box.width - 2f, box.height - 2f), tint);
+
+                addon.DrawSections();
+            }
+            finally
+            {
+                EditorGUILayout.EndVertical();
+            }
+        }
+
+        // The title of a section, which opens and closes it. Inside its box when the add-on has a colour.
         internal static bool Section (string title, string tooltip, bool open)
         {
-            EditorGUILayout.Space();
-
             sectionStyle ??= new GUIStyle(EditorStyles.foldout) { fontStyle = FontStyle.Bold };
 
             return EditorGUILayout.Foldout(open, new GUIContent(title, tooltip), true, sectionStyle);

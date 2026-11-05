@@ -45,6 +45,9 @@ namespace Nefisto.Recolor
         // After the save buttons, at the end of the settings.
         internal virtual void DrawSections () { }
 
+        // With a colour, what DrawSections draws goes in a box of its own, tinted with it.
+        internal virtual Color SectionTint => Color.clear;
+
         // At the bottom of the settings column, outside its scroll, just above the shortcuts. Only while
         // an image is open.
         internal virtual void DrawFooter () { }

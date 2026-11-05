@@ -2,6 +2,10 @@
 
 All notable changes to Recolor are listed here, newest first.
 
+## 1.1.1
+
+- No visible changes to Recolor itself: it now lets Recolor Pro draw each of its sections in a box.
+
 ## 1.1.0
 
 - No changes to Recolor itself: this version adds a Recolor Pro feature.
