@@ -2,7 +2,7 @@
 
 All notable changes to Recolor are listed here, newest first.
 
-## 1.0.3
+## 1.1.0
 
 - No changes to Recolor itself: this version adds a Recolor Pro feature.
 
