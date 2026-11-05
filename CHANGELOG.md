@@ -2,6 +2,10 @@
 
 All notable changes to Recolor are listed here, newest first.
 
+## 1.0.2
+
+- No changes to Recolor itself: this version adds a Recolor Pro feature.
+
 ## 1.0.1
 
 - **File name** for Save as new image, with a small mode picker button:
