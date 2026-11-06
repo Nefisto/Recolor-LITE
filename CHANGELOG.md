@@ -2,6 +2,12 @@
 
 All notable changes to Recolor are listed here, newest first.
 
+## 1.1.2
+
+- The settings sit in a box titled **Settings**, with a little room between the colours, the matching settings and saving.
+- **Save as new image** stands out, in bold, and its tooltip shows the name it saves. The **File name** moved under the **▾** button beside it, open to start with, and **Overwrite original** is on its own line below.
+- The To colour field lines up with the From colour field.
+
 ## 1.1.1
 
 - No visible changes to Recolor itself: it now lets Recolor Pro draw each of its sections in a box.

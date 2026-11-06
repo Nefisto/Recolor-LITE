@@ -127,6 +127,10 @@ namespace Nefisto.Recolor
         [SerializeField]
         internal float mixTolerance = 16f;
 
+        // The File name of Save as new image shows under it.
+        [SerializeField]
+        private bool showFileName = true;
+
         // The name of a new image. Each mode keeps its own text, so switching back and forth loses nothing.
         [SerializeField]
         internal NameMode nameMode = NameMode.Suffix;
@@ -183,6 +187,12 @@ namespace Nefisto.Recolor
         internal static GUIStyle loupeLabel;
         internal static GUIStyle shortcutLabel;
         internal static GUIStyle sectionStyle;
+        private static GUIStyle titleStyle;
+        private static GUIStyle saveStyle;
+
+        // Where the From field starts, for the To field to start there too.
+        [NonSerialized]
+        private float fromRowLeft;
         private static GUIStyle changedStyle;
         internal Vector2 optionsScroll;
         internal float settingsWidth;
@@ -355,7 +365,30 @@ namespace Nefisto.Recolor
             }
         }
 
+        // The window's own settings in a box of their own, then the add-ons' sections, each in its box.
         internal bool DrawOptions ()
+        {
+            bool ready;
+
+            using (new SectionBox(MainTint))
+            {
+                Section("Settings", "Pick the image and the colours, set how they're matched, and save the result.");
+                ready = DrawMainOptions();
+            }
+
+            if (!ready)
+                return false;
+
+            foreach (var addon in addons)
+                DrawSection(addon);
+
+            return true;
+        }
+
+        // A light grey, so the box reads as one without taking a colour of its own.
+        private static Color MainTint => EditorGUIUtility.isProSkin ? new Color(1f, 1f, 1f, 0.03f) : new Color(0f, 0f, 0f, 0.03f);
+
+        private bool DrawMainOptions ()
         {
             EditorGUI.BeginChangeCheck();
 
@@ -474,20 +507,35 @@ namespace Nefisto.Recolor
                             "The To colour would push the lightest or darkest shades past the limit and merge them, so every shade moved only as far as fits. A slightly lighter or darker To colour moves the From colour closer to it, or Keep shading can be turned off."), landedColor);
             }
 
-            DrawFileName();
+            // Saving is a group of its own, apart from the matching settings above.
+            EditorGUILayout.Space(8f);
+            LoadFileNameOfImage();
+
+            // Save as new image is the usual way, so it stands out. The ▾ beside it shows its File name, like
+            // the settings of Generate variants, and Overwrite original comes after, on a line of its own.
+            saveStyle ??= new GUIStyle(GUI.skin.button) { fontStyle = FontStyle.Bold };
+
+            var newPath = NewPath();
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                if (GUILayout.Button("Save as new image"))
-                    Save(NewPath());
+                if (GUILayout.Button(new GUIContent("Save as new image", $"Saves {Path.GetFileName(newPath)} next to the image."), saveStyle, GUILayout.Height(24f)))
+                    Save(newPath);
 
-                if (GUILayout.Button("Overwrite original") &&
-                    EditorUtility.DisplayDialog("Recolor", $"Overwrite '{source.name}'? Undo won't bring it back.", "Overwrite", "Cancel"))
-                    Save(AssetDatabase.GetAssetPath(source));
+                showFileName = GUILayout.Toggle(showFileName, new GUIContent(showFileName ? "▴" : "▾", "The new image's file name."),
+                    GUI.skin.button, GUILayout.Height(24f), GUILayout.Width(24f));
             }
 
-            foreach (var addon in addons)
-                DrawSection(addon);
+            if (showFileName)
+                using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+                    DrawFileName();
+
+            // Shown with the ▾ closed too: it's the one thing to know before saving.
+            DrawNameTaken();
+
+            if (GUILayout.Button(new GUIContent("Overwrite original", "Replaces the original file. Undo won't bring it back.")) &&
+                EditorUtility.DisplayDialog("Recolor", $"Overwrite '{source.name}'? Undo won't bring it back.", "Overwrite", "Cancel"))
+                Save(AssetDatabase.GetAssetPath(source));
 
             return true;
         }
@@ -517,6 +565,21 @@ namespace Nefisto.Recolor
         internal bool HasSelection () => seeds.Count > 0 || addedPixels.Count > 0 || removedPixels.Count > 0;
 
         // Starts the selection from every pixel the From colour matches.
+        // Area set to Clicked region, as picking it in the Area menu does.
+        internal void UseClickedRegion ()
+        {
+            if (area == AreaMode.ClickedRegion)
+                return;
+
+            area = AreaMode.ClickedRegion;
+
+            if (!HasSelection())
+                SelectEveryMatch();
+
+            dirty = true;
+            Repaint();
+        }
+
         internal void SelectEveryMatch ()
         {
             seeds.Clear();
@@ -547,11 +610,16 @@ namespace Nefisto.Recolor
             using (new EditorGUILayout.HorizontalScope())
             {
                 fromColor = EditorGUILayout.ColorField(new GUIContent("From", "The colour to replace. A click on the original image picks it; a zoom around the cursor shows the pixels, and holding Alt shows only the colour."), fromColor);
+
+                if (Event.current.type == EventType.Repaint)
+                    fromRowLeft = GUILayoutUtility.GetLastRect().x;
+
                 GUILayout.Space(WheelSize + 4f);
             }
         }
 
-        // The colour field sits centred beside the wheel.
+        // The colour field sits centred beside the wheel. Inside its column the layout moves it a few pixels
+        // right, so it starts where the From field does, to line up with it.
         internal void DrawToRow ()
         {
             using (new EditorGUILayout.HorizontalScope())
@@ -559,7 +627,13 @@ namespace Nefisto.Recolor
                 using (new EditorGUILayout.VerticalScope(GUILayout.Height(WheelSize)))
                 {
                     GUILayout.FlexibleSpace();
-                    toColor = EditorGUILayout.ColorField(new GUIContent("To", "Where that colour goes. Its shades follow."), toColor);
+
+                    var rect = EditorGUILayout.GetControlRect();
+
+                    if (fromRowLeft > 0f)
+                        rect.xMin = fromRowLeft;
+
+                    toColor = EditorGUI.ColorField(rect, new GUIContent("To", "Where that colour goes. Its shades follow."), toColor);
                     GUILayout.FlexibleSpace();
                 }
 
@@ -907,29 +981,55 @@ namespace Nefisto.Recolor
                 return;
             }
 
-            EditorGUILayout.Space(4f);
-
-            var box = EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-
-            try
-            {
-                if (Event.current.type == EventType.Repaint)
-                    EditorGUI.DrawRect(new Rect(box.x + 1f, box.y + 1f, box.width - 2f, box.height - 2f), tint);
-
+            using (new SectionBox(tint))
                 addon.DrawSections();
-            }
-            finally
-            {
-                EditorGUILayout.EndVertical();
-            }
         }
 
-        // The title of a section, which opens and closes it. Inside its box when the add-on has a colour.
-        internal static bool Section (string title, string tooltip, bool open)
+        // A box with a light tint behind what's drawn inside it, a little apart from the one before.
+        private readonly struct SectionBox : IDisposable
+        {
+            public SectionBox (Color tint)
+            {
+                EditorGUILayout.Space(4f);
+
+                var box = EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+
+                if (Event.current.type == EventType.Repaint)
+                    EditorGUI.DrawRect(new Rect(box.x + 1f, box.y + 1f, box.width - 2f, box.height - 2f), tint);
+            }
+
+            public void Dispose () => EditorGUILayout.EndVertical();
+        }
+
+        // The title of a section. Clicking anywhere on it opens and closes the section; closed, the summary
+        // shows beside the title, such as how many there are.
+        internal static bool Section (string title, string tooltip, bool open, string summary = null)
         {
             sectionStyle ??= new GUIStyle(EditorStyles.foldout) { fontStyle = FontStyle.Bold };
 
-            return EditorGUILayout.Foldout(open, new GUIContent(title, tooltip), true, sectionStyle);
+            var rect = EditorGUILayout.GetControlRect();
+            var current = Event.current;
+
+            if (current.type == EventType.MouseDown && current.button == 0 && rect.Contains(current.mousePosition))
+            {
+                open = !open;
+                GUI.changed = true;
+                current.Use();
+            }
+
+            var text = !open && !string.IsNullOrEmpty(summary) ? $"{title}  ({summary})" : title;
+
+            EditorGUI.Foldout(rect, open, new GUIContent(text, tooltip), true, sectionStyle);
+
+            return open;
+        }
+
+        // A title over settings that are always shown, in the same place as a section's.
+        internal static void Section (string title, string tooltip)
+        {
+            titleStyle ??= new GUIStyle(EditorStyles.boldLabel);
+
+            EditorGUILayout.LabelField(new GUIContent(title, tooltip), titleStyle);
         }
 
 
@@ -2432,12 +2532,20 @@ namespace Nefisto.Recolor
 
         // The label, a small menu button to pick the mode, and the text of that mode. An existing file is
         // never replaced: Unity adds a number to the name instead, and a line under the field says so.
-        private void DrawFileName ()
+        // The file name set for the image, brought back when another image was opened.
+        private string LoadFileNameOfImage ()
         {
             var guid = AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(source));
 
             if (guid != fileNameGuid)
                 LoadFileName(guid);
+
+            return guid;
+        }
+
+        private void DrawFileName ()
+        {
+            var guid = LoadFileNameOfImage();
 
             EditorGUI.BeginChangeCheck();
 
@@ -2470,17 +2578,16 @@ namespace Nefisto.Recolor
 
             if (EditorGUI.EndChangeCheck())
                 RecolorFileNames.Set(guid, nameMode, nameStart, nameEnd, customName);
+        }
 
-            // Only when the name is taken: Unity adds a number to it, so the image is saved under another name.
+        // Only when the name is taken: Unity adds a number to it, so the image is saved under another name.
+        private void DrawNameTaken ()
+        {
             var wanted = NewName() + ".png";
             var saved = Path.GetFileName(NewPath());
 
             if (saved != wanted)
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    GUILayout.Space(EditorGUIUtility.labelWidth + 2f);
-                    GUILayout.Label($"{wanted} already exists: it saves as {saved}", EditorStyles.miniLabel);
-                }
+                EditorGUILayout.LabelField($"{wanted} already exists: it saves as {saved}", EditorStyles.wordWrappedMiniLabel);
         }
 
         // For a suffix or a prefix, the field splits in two: the part that stays, which can't be edited, and
