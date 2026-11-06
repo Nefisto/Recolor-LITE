@@ -2,6 +2,10 @@
 
 All notable changes to Recolor are listed here, newest first.
 
+## 1.2.0
+
+- No changes to Recolor itself: this version adds Recolor Pro features.
+
 ## 1.1.2
 
 - The settings sit in a box titled **Settings**, with a little room between the colours, the matching settings and saving.
