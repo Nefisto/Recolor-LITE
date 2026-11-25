@@ -2,6 +2,10 @@
 
 All notable changes to Recolor are listed here, newest first.
 
+## 1.2.2
+
+- A demo, in **Packages > Recolor > Demo**: the watermelon as one sprite and as an 8-frame walk cycle, a scene showing both, and a README that walks through the features on them. It replaces the empty Demo sample.
+
 ## 1.2.1
 
 - No changes to Recolor itself: this version adds a demo to Recolor Pro.
