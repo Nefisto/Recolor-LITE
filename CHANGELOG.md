@@ -2,6 +2,10 @@
 
 All notable changes to Recolor are listed here, newest first.
 
+## 1.2.3
+
+- **Tools > Recolor > Open demo** opens the demo scene and selects its README.
+
 ## 1.2.2
 
 - A demo, in **Packages > Recolor > Demo**: the watermelon as one sprite and as an 8-frame walk cycle, a scene showing both, and a README that walks through the features on them. It replaces the empty Demo sample.

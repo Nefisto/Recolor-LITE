@@ -1,5 +1,7 @@
 # Recolor Demo
 
+**Tools > Recolor > Open demo** opens the demo scene and selects this README.
+
 Sample images to try Recolor on, and a scene that shows them.
 
 - **Sprites/melon.png**: the watermelon, one sprite, with its pink headband and backpack.

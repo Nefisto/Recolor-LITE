@@ -35,7 +35,7 @@ Requires **Unity 2022.3** or newer. Recolor is editor-only: nothing is added to 
 - **Git URL:** in **Window > Package Manager**, **+ > Add package from git URL**, with
   `https://github.com/Nefisto/Recolor-LITE.git`.
 
-A demo is included, in **Packages > Recolor > Demo**: the watermelon, as one sprite and as an 8-frame
+A demo is included, in **Packages > Recolor > Demo**, and **Tools > Recolor > Open demo** opens it: the watermelon, as one sprite and as an 8-frame
 walk cycle, a scene showing both, and a README that walks through the features on them.
 
 ## Quick start
