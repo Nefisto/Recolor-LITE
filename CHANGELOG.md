@@ -2,6 +2,10 @@
 
 All notable changes to Recolor are listed here, newest first.
 
+## 1.2.4
+
+- **Tools > Recolor > Help** links to the Asset Store: **Leave a review** opens Recolor's reviews, and the Recolor Pro button opens its page.
+
 ## 1.2.3
 
 - **Tools > Recolor > Open demo** opens the demo scene and selects its README.

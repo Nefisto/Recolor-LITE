@@ -193,7 +193,7 @@ To report a bug:
 
 ## Recolor Pro
 
-Recolor Pro, on the Unity Asset Store, adds what sprite sheets need: the selection found on every
+[Recolor Pro](https://assetstore.unity.com/packages/tools/sprite-management/recolor-pro-425520), on the Unity Asset Store, adds what sprite sheets need: the selection found on every
 frame, steps, stored selections, colour variants and transition sheets. It adds them to the
 same Recolor window.
 

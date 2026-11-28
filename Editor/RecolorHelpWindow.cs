@@ -9,11 +9,11 @@ namespace Nefisto.Recolor
     // email it.
     internal class RecolorHelpWindow : EditorWindow
     {
-        // The Asset Store page of Recolor Pro. Empty until it is published; the buy button waits for it.
-        internal const string ProUrl = "";
+        // The Asset Store page of Recolor Pro, for the buy button.
+        internal const string ProUrl = "https://assetstore.unity.com/packages/tools/sprite-management/recolor-pro-425520";
 
-        // The Asset Store page of the free Recolor. Empty until it is published; the review link waits for it.
-        internal const string LiteUrl = "";
+        // The Asset Store page of the free Recolor, for the review link.
+        internal const string LiteUrl = "https://assetstore.unity.com/packages/tools/sprite-management/recolor-lite-425006";
 
         internal const string ContactEmail = "nefisto.developer@gmail.com";
 
